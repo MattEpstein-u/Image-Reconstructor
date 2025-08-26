@@ -160,11 +160,12 @@ function processImageForPlot(src, name) {
             }
         }
         console.log('[DEBUG] First 10 non-transparent RGBA pixels:', firstNonTransparent);
-        console.log('First 40 RGBA values:', Array.from(data).slice(0, 160));
+        // Convert only the first 160 values for logging to avoid allocating a huge array
+        console.log('First 40 RGBA values:', Array.from(data.slice(0, 160)));
         // Count unique RGB values and their frequencies
         const colorCounts = new Map();
         const PIXEL_LIMIT = 100000;
-        const totalPixels = data.length / 4;
+        const totalPixels = Math.floor(data.length / 4);
         let indices;
         if (totalPixels > PIXEL_LIMIT) {
             // Randomly sample PIXEL_LIMIT indices
