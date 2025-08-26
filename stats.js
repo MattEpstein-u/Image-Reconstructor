@@ -92,7 +92,7 @@ function plotRGB(r, g, b, name) {
 
     // Always use [0,1] for axis range so all colors are visible
     const layout = {
-        title: `3D RGB Plot — ${name}`,
+        title: `Interactive RGB Plot — ${name}`,
         autosize: true,
         margin: { l: 0, r: 0, b: 0, t: 40, pad: 0 },
         scene: {
@@ -116,8 +116,8 @@ function plotRGB(r, g, b, name) {
         layout.height = Math.max(300, window.innerHeight - 200);
     }
 
-            Plotly.newPlot('plot', [trace], layout).then(() => {
-                // Ensure plot fully fits the container
+            // Use Plotly.react for in-place updates (preserves interactions better)
+            Plotly.react('plot', [trace], layout).then(() => {
                 try {
                     Plotly.relayout('plot', {width: layout.width, height: layout.height});
                 } catch (e) {
@@ -234,14 +234,11 @@ function processImageForPlot(src, name) {
                 return {centroids: [data[0], data[1]], assignments: data.map((_,i)=>i), inertia: 0};
             }
             function randomCentroids(data, k) {
+                // Produce k random centroids independent of the dataset.
+                // Each centroid is a point in RGB space with components in [0,1].
                 const centroids = [];
-                const used = new Set();
-                while (centroids.length < k) {
-                    const idx = Math.floor(Math.random() * data.length);
-                    if (!used.has(idx)) {
-                        centroids.push([...data[idx]]);
-                        used.add(idx);
-                    }
+                for (let i = 0; i < k; i++) {
+                    centroids.push([Math.random(), Math.random(), Math.random()]);
                 }
                 return centroids;
             }
@@ -280,6 +277,11 @@ function processImageForPlot(src, name) {
                     for (let j=0; j<k; j++) {
                         if (counts[j] > 0) {
                             centroids[j] = [sums[j][0]/counts[j], sums[j][1]/counts[j], sums[j][2]/counts[j]];
+                        } else {
+                            // Empty cluster: reassign centroid to a random data point
+                            // This is a common practical fix to avoid degenerate clusters
+                            const idx = Math.floor(Math.random() * data.length);
+                            centroids[j] = [...data[idx]];
                         }
                     }
                     iter++;
@@ -305,7 +307,7 @@ function processImageForPlot(src, name) {
         const centroids = kmeansResult.centroids;
 
         // Plot points and centroids
-        function plotRGBWithCentroids(r, g, b, name, size, color, centroids) {
+    function plotRGBWithCentroids(r, g, b, name, size, color, centroids, camera) {
             let markerSize = size;
             if (!markerSize || markerSize.length === 0) {
                 markerSize = Array(r.length).fill(10);
@@ -344,7 +346,7 @@ function processImageForPlot(src, name) {
                 name: 'Centroids'
             };
             const layout = {
-                title: `3D RGB Plot — ${name} (k=${centroids.length})`,
+                title: `Interactive RGB Plot — ${name} (k=${centroids.length})`,
                 autosize: true,
                 margin: { l: 0, r: 0, b: 0, t: 40, pad: 0 },
                 scene: {
@@ -352,8 +354,8 @@ function processImageForPlot(src, name) {
                     yaxis: {title: 'Green', range: [0, 1]},
                     zaxis: {title: 'Blue', range: [0, 1]},
                     aspectmode: 'cube',
-                    // rotate camera 45° to the right from the previous diagonal view
-                    camera: { eye: { x: 1.98, y: 0.0, z: 1.4 } }
+                    // use provided camera (preserve view) or fall back to default
+                    camera: camera || { eye: { x: 1.98, y: 0.0, z: 1.4 } }
                 },
             };
             // Use plot container size when available to avoid overflowing the layout
@@ -367,7 +369,21 @@ function processImageForPlot(src, name) {
                 layout.width = Math.min(window.innerWidth, 800);
                 layout.height = Math.max(300, window.innerHeight - 200);
             }
-            Plotly.newPlot('plot', [trace, centroidTrace], layout);
+            // Use Plotly.react to update traces/layout in-place and preserve user interactions
+            Plotly.react('plot', [trace, centroidTrace], layout).then(() => {
+                try {
+                    Plotly.relayout('plot', {width: layout.width, height: layout.height});
+                } catch (e) {
+                    console.log('[DEBUG] relayout failed', e);
+                }
+                if (camera) {
+                    try {
+                        Plotly.relayout('plot', {'scene.camera': camera});
+                    } catch (e) {
+                        console.log('[DEBUG] reapplying camera failed', e);
+                    }
+                }
+            });
         }
 
         plotRGBWithCentroids(rArr, gArr, bArr, name, sizeArr, colorArr, centroids);
@@ -585,7 +601,17 @@ function processImageForPlot(src, name) {
                     const newKmeans = kmeans(pixelData, useK, 8);
                     const newCentroids = newKmeans.centroids;
                     // update plot and summary
-                    plotRGBWithCentroids(rArr, gArr, bArr, name, sizeArr, colorArr, newCentroids);
+                    // try to preserve current camera view if user has rotated/zoomed
+                    let currentCamera = null;
+                    try {
+                        const gd = document.getElementById('plot');
+                        if (gd && gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.camera) {
+                            currentCamera = gd._fullLayout.scene.camera;
+                        }
+                    } catch (err) {
+                        // ignore and use default
+                    }
+                    plotRGBWithCentroids(rArr, gArr, bArr, name, sizeArr, colorArr, newCentroids, currentCamera);
                     let centroidHtml = '<div style="margin-top:10px;font-size:1.1em"><b>K-means Centroids (k=' + newCentroids.length + '):</b><br>';
                     newCentroids.forEach((c,i)=>{
                         centroidHtml += `C${i+1}: <span style="color:rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)});font-weight:bold;">rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})</span><br>`;
