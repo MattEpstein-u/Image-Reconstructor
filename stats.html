@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Dimensional RGB Plot with Reconstructed Image</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+</head>
+<body>
+    <div class="controls-panel">
+        <div class="header-wrapper">
+            <h1 class="page-title">3-Dimensional RGB Plot with Reconstructed Image</h1>
+            <div class="dropdown-container">
+                <select id="imageSelect"></select>
+                <button id="rerunBtn">Re-run clustering</button>
+                <label class="k-control">
+                    <span class="k-label">k</span>
+                    <input id="kSlider" type="range" min="2" max="10" value="3">
+                    <span id="kValue">3</span>
+                    <span class="k-hint">Adjust k, then click Re-run</span>
+                </label>
+                <input type="file" id="fileInput" accept="image/*" style="display:none;">
+            </div>
+        </div>
+    </div>
+
+    <div class="content-columns">
+        <div class="three-col-container">
+            <div class="summary-col">
+                <div id="centroidSummary" class="summary-box"></div>
+            </div>
+            <div class="left-col">
+                <div id="plot" class="plot-box"></div>
+            </div>
+            <div class="right-col">
+                <div id="reconArea" class="recon-box">
+                    <div id="originalArea" class="recon-original"></div>
+                    <div id="reconstructedArea" class="recon-reconstructed"></div>
+                    <div id="reconSwatches" class="recon-swatches"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="stats.js"></script>
+</body>
+</html>

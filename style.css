@@ -1,0 +1,496 @@
+
+/* Dropdown and upload button container */
+.dropdown-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px 0 12px; /* reduce horizontal padding to avoid overflow */
+    margin-bottom: 8px;
+}
+
+/* k slider control styling */
+.k-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    padding: 6px 8px;
+    border-radius: 8px;
+}
+.k-control .k-label {
+    font-weight: 700;
+    color: #374151;
+    margin-right: 4px;
+}
+.k-control input[type="range"] {
+    width: 140px;
+}
+.k-control #kValue {
+    min-width: 20px;
+    text-align: center;
+    font-weight: 600;
+    color: #111827;
+}
+.k-control .k-hint {
+    margin-left: 8px;
+    font-size: 0.85rem;
+    color: #6b7280;
+    display: inline-block;
+}
+
+/* Make the document fill the viewport and prevent page scrolling */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden; /* prevent page-level scrolling */
+}
+
+/* Make box-sizing inherit everywhere so padding/border are included in width/height calculations */
+* , *::before, *::after {
+    box-sizing: inherit;
+}
+
+/* Dropdown menu styling */
+#imageSelect {
+    font-size: 1.15em;
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: 2px solid #888;
+    background: #fff;
+    color: #222;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    outline: none;
+    min-width: 180px;
+    max-width: 320px;
+    appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+#imageSelect:focus, #imageSelect:hover {
+    border-color: #1976d2;
+    box-shadow: 0 4px 16px rgba(25, 118, 210, 0.18);
+}
+
+/* Upload button styling to match dropdown */
+#uploadBtn {
+    font-size: 1.15em;
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: 2px solid #888;
+    background: #fff;
+    color: #222;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+#uploadBtn:focus, #uploadBtn:hover {
+    border-color: #1976d2;
+    box-shadow: 0 4px 16px rgba(25, 118, 210, 0.18);
+    background: #f0f6ff;
+}
+
+/* Upload image box */
+.upload-image-box {
+    border: 2px dashed #1976d2;
+    background: #f0f6ff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 140px;
+    height: 140px;
+    box-sizing: border-box;
+    font-size: 1.2em;
+    text-align: center;
+    padding: 0;
+}
+
+/* Gallery container */
+#gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 16px 0 8px 0;
+    box-sizing: border-box;
+    width: 100vw;
+    max-width: 100vw;
+    height: calc(100vh - 56px);
+    margin: 0 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+/* Individual image container */
+.image-container {
+    width: 140px;
+    height: 180px;
+    min-width: 140px;
+    min-height: 180px;
+    max-width: 140px;
+    max-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background: #f8f8f8;
+    border-radius: 8px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    margin: 0;
+    padding: 8px 0 0 0;
+    transition: box-shadow 0.2s, transform 0.2s;
+    box-sizing: border-box;
+}
+.image-container:hover {
+    box-shadow: 0 4px 16px rgba(25, 118, 210, 0.12);
+    transform: scale(1.04);
+    z-index: 2;
+    will-change: transform;
+    overflow: visible;
+}
+
+.image-container img {
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.image-container img:hover {
+    box-shadow: 0 4px 16px rgba(25, 118, 210, 0.18);
+    transform: scale(1.06);
+    z-index: 2;
+}
+
+.image-label {
+    font-size: 0.95em;
+    color: #333;
+    word-break: break-all;
+}
+
+.upload-label {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #1976d2;
+    margin-top: 32px;
+    margin-bottom: 32px;
+    cursor: pointer;
+    transition: color 0.2s;
+    text-align: center;
+}
+.upload-label:hover {
+    color: #1565c0;
+}
+
+/* Plot and reconstruction side-by-side container */
+.plot-area {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 8px 12px 12px 12px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+.plot-box {
+    flex: 1 1 auto;
+    min-width: 0; /* allow shrinking inside flex container */
+    width: 100%;
+    height: calc(100vh - 220px);
+    max-height: 760px;
+    box-sizing: border-box;
+}
+
+.recon-box {
+    width: 420px;
+    max-width: 45%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px;
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    min-height: 160px;
+    box-sizing: border-box;
+    overflow: auto;
+}
+
+/* Make layout vertical on narrow screens */
+@media (max-width: 900px) {
+    .plot-area { flex-direction: column; }
+    .recon-box { width: 100%; max-width: none; }
+    .plot-box { height: 50vh; }
+}
+
+/* Two column layout that contains controls on left and plot/recon on right */
+.content-columns {
+    display: block;
+    padding: 8px 12px 12px 12px; /* reduced padding */
+    box-sizing: border-box;
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+.controls-panel {
+    grid-column: 1 / -1;
+    width: 100%;
+    background: transparent;
+    padding-bottom: 8px;
+}
+
+/* Reserve a fixed area for the controls so we can size the content to the viewport */
+.controls-panel {
+    --controls-height: 88px;
+    height: var(--controls-height);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+}
+
+/* Header wrapper centers the title and controls within a constrained width */
+.header-wrapper {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 18px 12px 8px 12px; /* extra top padding to avoid clipping */
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+@media (max-width: 900px) {
+    .content-columns { grid-template-columns: 1fr; }
+    .controls-panel { position: static; grid-column: auto; }
+}
+
+/* Two-column full-width container for plot and reconstruction */
+.two-col-container {
+    /* span the full viewport width while remaining centered in the layout */
+    position: relative;
+    left: calc(50% - 50vw);
+    width: 100vw;
+    display: flex;
+    gap: 12px;
+    box-sizing: border-box;
+    padding: 0 12px;
+}
+.two-col-container .left-col,
+.two-col-container .right-col {
+    flex: 1 1 50%;
+    min-width: 0; /* allow shrinking to avoid overflow */
+}
+
+@media (max-width: 900px) {
+    .two-col-container { flex-direction: column; }
+    .two-col-container .left-col, .two-col-container .right-col { width: 100%; }
+}
+
+/* Three-column variant: summary | plot | recon */
+.three-col-container {
+    position: relative;
+    left: calc(50% - 50vw);
+    width: 100vw;
+    display: flex;
+    gap: 12px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    align-items: flex-start;
+}
+/* Fill remaining viewport height under controls; avoid body scrolling */
+.three-col-container {
+    height: calc(100vh - var(--controls-height, 88px));
+    overflow: hidden;
+}
+.three-col-container .summary-col {
+    width: 220px;
+    flex: 0 0 220px;
+}
+.three-col-container .summary-box {
+    background: #fff;
+    border: 1px solid #eee;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.three-col-container .left-col { flex: 1 1 0; min-width: 0; height: 100%; }
+.three-col-container .right-col { flex: 1 1 0; min-width: 0; height: 100%; }
+
+/* Make recon-box fill its column */
+.recon-box {
+    width: 100%;
+    max-width: none;
+}
+
+/* Recon column sub-areas */
+.recon-original, .recon-reconstructed {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    /* fixed visual display height so original and reconstructed match */
+    --recon-display-height: 260px;
+    height: var(--recon-display-height);
+}
+.recon-label {
+    flex: 0 0 92px; /* fixed column for label */
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.85rem;
+    line-height: 1.1;
+}
+.recon-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+.recon-media {
+    flex: 1 1 0; /* fill remaining space identically in both rows */
+    min-width: 0; /* allow proper flex shrinking */
+    width: auto; /* allow height to drive sizing so images/canvas keep aspect ratio */
+    height: 100%; /* match the fixed row height set on the parent */
+    display: block;
+    border: 1px solid #e6e6e6;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    object-fit: contain;
+    box-sizing: border-box;
+}
+.recon-swatches {
+    display: flex;
+    gap: 12px;
+    padding: 18px 24px 36px 24px; /* extra bottom padding so swatches don't get cut off */
+    justify-content: center;
+    align-items: center;
+}
+
+/* Keep swatches centered under the image area (to the right of the label).
+   Insert a left spacer equal to the label column so the remaining space centers the swatches. */
+.recon-swatches::before {
+    content: '';
+    flex: 0 0 92px; /* matches .recon-label flex-basis */
+}
+
+@media (max-width: 900px) {
+    .recon-original, .recon-reconstructed { --recon-display-height: 180px; }
+}
+
+/* Ensure plot and recon fill their column heights and scroll internally if content exceeds */
+.plot-box {
+    height: 100%;
+    overflow: hidden; /* no internal scrolling */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.recon-box {
+    height: 100%;
+    overflow: hidden; /* no internal scrolling */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ensure any canvas/img inside recon-box use the same sizing model as .recon-media
+   - keep height fixed to the parent's display height and let width auto-scale
+   - avoid height:auto here which would break the intended fixed visual height */
+.recon-box canvas, .recon-box img {
+    width: auto;
+    height: 100%;
+    max-height: none;
+    display: block;
+    box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+    .three-col-container { flex-direction: column; left: 0; width: 100%; }
+    .three-col-container .summary-col, .three-col-container .right-col { width: 100%; flex: none; }
+}
+
+/* Page title and subtitle */
+.page-title {
+    margin: 4px 0 0 0;
+    padding: 0;
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: #222;
+    text-align: center;
+}
+/* subtitle removed intentionally */
+
+/* When centering controls, keep dropdown and upload compact on wide screens */
+.controls-panel .dropdown-container {
+    justify-content: center;
+    max-width: 760px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px 0 8px;
+}
+
+/* Tidy the select and upload button for a cleaner header */
+#imageSelect {
+    font-size: 1rem;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db; /* subtle gray */
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 1px 6px rgba(16,24,40,0.04);
+    min-width: 220px;
+    max-width: 520px;
+}
+#imageSelect:focus, #imageSelect:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 6px 20px rgba(59,130,246,0.08);
+}
+
+#uploadBtn {
+    font-size: 1rem;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 6px rgba(16,24,40,0.04);
+}
+#uploadBtn:focus, #uploadBtn:hover {
+    border-color: #3b82f6;
+    background: #f8fbff;
+    box-shadow: 0 8px 26px rgba(59,130,246,0.06);
+}
+
+/* Make the re-run button visually match the upload/select controls */
+#rerunBtn {
+    font-size: 1rem;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 6px rgba(16,24,40,0.04);
+    cursor: pointer;
+}
+#rerunBtn:focus, #rerunBtn:hover {
+    border-color: #3b82f6;
+    background: #f8fbff;
+    box-shadow: 0 8px 26px rgba(59,130,246,0.06);
+}
