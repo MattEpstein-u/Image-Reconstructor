@@ -8,20 +8,26 @@
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 </head>
 <body>
+    <div class="header-wrapper">
+        <h1 class="page-title">3-Dimensional RGB Plot with Reconstructed Image</h1>
+    </div>
+
     <div class="controls-panel">
-        <div class="header-wrapper">
-            <h1 class="page-title">3-Dimensional RGB Plot with Reconstructed Image</h1>
-            <div class="dropdown-container">
-                <select id="imageSelect"></select>
-                <button id="rerunBtn">Re-run clustering</button>
-                <label class="k-control">
-                    <span class="k-label">k</span>
-                    <input id="kSlider" type="range" min="2" max="10" value="3">
-                    <span id="kValue">3</span>
-                    <span class="k-hint">Adjust k, then click Re-run</span>
-                </label>
-                <input type="file" id="fileInput" accept="image/*" style="display:none;">
-            </div>
+        <div class="dropdown-container">
+            <a href="index.html" class="home-btn">Home</a>
+            <label for="imageSelect" class="dropdown-label">Select Image:</label>
+            <select id="imageSelect">
+                <option value="" disabled selected>Choose an image...</option>
+            </select>
+            <button id="rerunBtn">Re-run clustering</button>
+            <label class="k-control">
+                <span class="k-label">k</span>
+                <input id="kSlider" type="range" min="2" max="10" value="3">
+                <span id="kValue">3</span>
+                <span class="k-hint">Adjust k, then click
+Re-run clustering</span>
+            </label>
+            <input type="file" id="fileInput" accept="image/*" style="display:none;">
         </div>
     </div>
 

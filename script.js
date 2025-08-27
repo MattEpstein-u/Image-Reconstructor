@@ -63,8 +63,7 @@ fileInput.addEventListener('change', (event) => {
             container.appendChild(img);
             container.appendChild(label);
             // Insert before the upload box
-                gallery.insertBefore(container, uploadBox);
-            console.log('Uploaded image added to gallery:', file.name, img.src);
+            gallery.insertBefore(container, uploadBox);
             // Add click event to select uploaded image and show RGB stats
             img.addEventListener('click', () => {
                 sessionStorage.setItem('uploadedImageSrc', img.src);
@@ -76,5 +75,4 @@ fileInput.addEventListener('change', (event) => {
     }
 });
 
-    gallery.appendChild(uploadBox);
-// Stats display and processing now handled in stats.html
+gallery.appendChild(uploadBox);

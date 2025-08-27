@@ -24,15 +24,17 @@ if (kSlider && kValueEl) {
 function populateDropdown() {
     imageSelect.innerHTML = '';
     // Populate dropdown with image files from images.json
-    if (!imageSelect) return;
-    imageSelect.innerHTML = '';
+    if (!imageSelect) {
+        return;
+    }
     // Add uploaded image if present
     const uploadedImage = sessionStorage.getItem('uploadedImageName');
     let uploadedImageSrcLocal = sessionStorage.getItem('uploadedImageSrc');
     fetch('images.json')
-        .then(response => response.json())
+        .then(response => {
+            return response.json();
+        })
         .then(imageFiles => {
-            imageSelect.innerHTML = '';
             if (uploadedImage) {
                 const option = document.createElement('option');
                 option.value = '__uploaded__';
@@ -45,23 +47,28 @@ function populateDropdown() {
                 option.textContent = file;
                 imageSelect.appendChild(option);
             });
+
             // Select image from URL if present
             const params = new URLSearchParams(window.location.search);
             const selectedImage = params.get('image');
             if (uploadedImage && params.uploaded === '1') {
                 imageSelect.value = '__uploaded__';
-                processImageForPlot(uploadedImageSrcLocal, uploadedImage);
+                processImageForPlot(uploadedImageSrcLocal, uploaded);
             } else if (selectedImage && imageFiles.includes(selectedImage)) {
                 imageSelect.value = selectedImage;
                 processImageForPlot('images/' + selectedImage, selectedImage);
             } else {
-                imageSelect.value = uploadedImage ? '__uploaded__' : imageFiles[0];
+                const defaultImage = uploadedImage ? '__uploaded__' : imageFiles[0];
+                imageSelect.value = defaultImage;
                 if (uploadedImage) {
                     processImageForPlot(uploadedImageSrcLocal, uploadedImage);
                 } else {
                     processImageForPlot('images/' + imageFiles[0], imageFiles[0]);
                 }
             }
+        })
+        .catch(error => {
+            console.error('Failed to load images.json:', error);
         });
 }
 
@@ -116,12 +123,12 @@ function plotRGB(r, g, b, name) {
         layout.height = Math.max(300, window.innerHeight - 200);
     }
 
-            // Use Plotly.react for in-place updates (preserves interactions better)
-            Plotly.react('plot', [trace], layout).then(() => {
+            // Use Plotly.newPlot to create/update the plot
+            Plotly.newPlot('plot', [trace], layout).then(() => {
                 try {
                     Plotly.relayout('plot', {width: layout.width, height: layout.height});
                 } catch (e) {
-                    console.log('[DEBUG] relayout failed', e);
+                    console.warn('Failed to resize plot:', e);
                 }
             });
 }
@@ -130,19 +137,16 @@ function processImageForPlot(src, name) {
     const img = new window.Image();
     img.src = src;
     img.onload = function() {
-        // Debug logs for troubleshooting
-    console.log('[DEBUG] Image loaded:', { width: img.width, height: img.height });
-        console.log('Image loaded:', { width: img.width, height: img.height });
-    // Ensure image is fully loaded before drawing
-    plotDiv.innerHTML = '';
-    const canvas = document.createElement('canvas');
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, w, h);
-        console.log('[DEBUG] Canvas dimensions:', canvas.width, canvas.height);
+        // Ensure image is fully loaded before drawing
+        // Note: Don't clear plotDiv here as it's the container we're rendering into
+        // Plotly.newPlot will replace the contents automatically
+        const canvas = document.createElement('canvas');
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, w, h);
         let imageData;
         try {
             imageData = ctx.getImageData(0, 0, img.width, img.height);
@@ -151,76 +155,59 @@ function processImageForPlot(src, name) {
             return;
         }
         const data = imageData.data;
-        // Log the actual RGB values of the first 10 non-transparent pixels
-        let firstNonTransparent = [];
-        for (let i = 0, found = 0; i < data.length && found < 10; i += 4) {
-            if (data[i+3] !== 0) {
-                firstNonTransparent.push([data[i], data[i+1], data[i+2], data[i+3]]);
-                found++;
-            }
-        }
-        console.log('[DEBUG] First 10 non-transparent RGBA pixels:', firstNonTransparent);
-        // Convert only the first 160 values for logging to avoid allocating a huge array
-        console.log('First 40 RGBA values:', Array.from(data.slice(0, 160)));
-        // Count unique RGB values and their frequencies
-        const colorCounts = new Map();
-        const PIXEL_LIMIT = 100000;
+        // Sample pixels based on total count, not uniqueness
+        const PIXEL_LIMIT = 200000;
         const totalPixels = Math.floor(data.length / 4);
-        let indices;
-        if (totalPixels > PIXEL_LIMIT) {
-            // Randomly sample PIXEL_LIMIT indices
-            indices = new Set();
+        let sampledPixels = [];
+        
+        if (totalPixels <= PIXEL_LIMIT) {
+            // Use all pixels
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i+3] !== 0) { // Only non-transparent pixels
+                    sampledPixels.push([
+                        data[i] / 255,
+                        data[i+1] / 255, 
+                        data[i+2] / 255
+                    ]);
+                }
+            }
+        } else {
+            // Randomly sample PIXEL_LIMIT pixels
+            const indices = new Set();
             while (indices.size < PIXEL_LIMIT) {
                 indices.add(Math.floor(Math.random() * totalPixels));
             }
-        } else {
-            // Use all pixel indices
-            indices = Array.from({length: totalPixels}, (_, i) => i);
-        }
-        let pixelCount = 0;
-        for (const idx of indices) {
-            const i = idx * 4;
-            if (data[i+3] !== 0) {
-                const r = data[i] / 255;
-                const g = data[i+1] / 255;
-                const b = data[i+2] / 255;
-                // Use raw normalized values for color grouping
-                const key = `${r},${g},${b}`;
-                colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
-                pixelCount++;
+            for (const idx of indices) {
+                const i = idx * 4;
+                if (data[i+3] !== 0) { // Only non-transparent pixels
+                    sampledPixels.push([
+                        data[i] / 255,
+                        data[i+1] / 255,
+                        data[i+2] / 255
+                    ]);
+                }
             }
         }
-        console.log('[DEBUG] Non-transparent pixels processed:', pixelCount);
-        console.log('[DEBUG] Total unique colors found:', colorCounts.size);
-        if (colorCounts.size > 1) {
-            console.log('[DEBUG] First 10 unique color keys:', Array.from(colorCounts.keys()).slice(0, 10));
-        }
-        console.log('Unique color counts:', Array.from(colorCounts.entries()).slice(0, 10));
-        if (colorCounts.size === 0) {
+        
+        if (sampledPixels.length === 0) {
             plotDiv.innerHTML = `<span style='color:red;'>No non-transparent pixels found in image.</span>`;
             return;
         }
-        // Prepare arrays for Plotly
-        let keys = Array.from(colorCounts.keys());
-        // If too many unique colors, sample evenly
-        const MAX_COLORS = 1000;
-        if (keys.length > MAX_COLORS) {
-            const step = Math.floor(keys.length / MAX_COLORS);
-            keys = keys.filter((_, i) => i % step === 0);
+        
+        // Prepare arrays for Plotly - sample for visualization if too many points
+        const MAX_PLOT_POINTS = 1000;
+        let plotPixels = sampledPixels;
+        if (sampledPixels.length > MAX_PLOT_POINTS) {
+            // Sample evenly for plotting
+            const step = Math.floor(sampledPixels.length / MAX_PLOT_POINTS);
+            plotPixels = sampledPixels.filter((_, i) => i % step === 0);
         }
-        const rArr = [];
-        const gArr = [];
-        const bArr = [];
-        const sizeArr = [];
-        const colorArr = [];
-        for (const key of keys) {
-            const [r, g, b] = key.split(',').map(Number);
-            rArr.push(r);
-            gArr.push(g);
-            bArr.push(b);
-            sizeArr.push(8); // All points same size
-            colorArr.push(`rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`);
-        }
+        
+        const rArr = plotPixels.map(p => p[0]);
+        const gArr = plotPixels.map(p => p[1]);
+        const bArr = plotPixels.map(p => p[2]);
+        const sizeArr = Array(plotPixels.length).fill(8);
+        const colorArr = plotPixels.map(p => `rgb(${Math.round(p[0]*255)},${Math.round(p[1]*255)},${Math.round(p[2]*255)})`);
 
 
         // --- K-means clustering robust to few unique colors ---
@@ -229,10 +216,6 @@ function processImageForPlot(src, name) {
             if (k === 1) {
                 // Only one unique color
                 return {centroids: [data[0]], assignments: Array(data.length).fill(0), inertia: 0};
-            }
-            if (k === 2) {
-                // Two unique colors
-                return {centroids: [data[0], data[1]], assignments: data.map((_,i)=>i), inertia: 0};
             }
             function randomCentroids(data, k) {
                 // Produce k random centroids independent of the dataset.
@@ -301,14 +284,94 @@ function processImageForPlot(src, name) {
         }
 
         // Prepare pixel data for kmeans
-        const pixelData = keys.map(key => key.split(',').map(Number));
-    // choose k from selectedK but don't exceed available unique colors
-    let k = Math.max(1, Math.min(selectedK || 3, keys.length));
+        const pixelData = sampledPixels;
+    // choose k from selectedK but don't exceed available pixels
+    let k = Math.max(1, Math.min(selectedK || 3, sampledPixels.length));
     const kmeansResult = kmeans(pixelData, k, 8);
-        const centroids = kmeansResult.centroids;
+    let centroids = kmeansResult.centroids;
+
+        // Function to merge clusters that are too close together
+        // IMPORTANT: This is called ONLY after k-means has fully converged
+        function mergeCloseClusters(centroids, data, distanceThreshold = 0.15) {
+            if (centroids.length <= 1) return centroids;
+
+            function distance(a, b) {
+                return Math.pow(a[0]-b[0],2) + Math.pow(a[1]-b[1],2) + Math.pow(a[2]-b[2],2);
+            }
+
+            let mergedCentroids = [...centroids];
+            let merged = true;
+            let iterations = 0;
+            const maxIterations = 50; // Allow many iterations to continue merging until no more close pairs exist
+
+            // Use a balanced threshold for merging - only merge centroids that are very close
+            const mergeThreshold = distanceThreshold * 0.5; // Balanced merging
+
+            while (merged && mergedCentroids.length > 1 && iterations < maxIterations) {
+                merged = false;
+                iterations++;
+
+                // Find the closest pair of centroids
+                let minDistance = Infinity;
+                let closestPair = [-1, -1];
+
+                for (let i = 0; i < mergedCentroids.length; i++) {
+                    for (let j = i + 1; j < mergedCentroids.length; j++) {
+                        const dist = distance(mergedCentroids[i], mergedCentroids[j]);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            closestPair = [i, j];
+                        }
+                    }
+                }
+
+                // Only merge if centroids are sufficiently close - be very conservative
+                if (minDistance < mergeThreshold && mergedCentroids.length > 1) {
+                    const [idx1, idx2] = closestPair;
+
+                    // Simple merging: remove the second centroid
+                    // The k-means algorithm has already converged, so this is safe
+                    mergedCentroids.splice(idx2, 1);
+                    merged = true;
+                }
+            }
+
+            return mergedCentroids;
+        }
+
+        // Apply cluster merging to avoid redundant clusters
+        // More aggressive merging - apply whenever there are multiple centroids
+        function shouldApplyMerging(centroids, data) {
+            if (centroids.length <= 1) return false; // Don't merge if we have only 1 centroid
+
+            // Always apply merging for multiple centroids to allow aggressive consolidation
+            // This will continue until all sufficiently close centroids are merged
+            return true;
+        }
+
+        if (shouldApplyMerging(centroids, pixelData)) {
+            centroids = mergeCloseClusters(centroids, pixelData);
+        }
+
+        // Update the k value and UI to reflect the actual number of centroids after merging
+        const actualK = centroids.length;
+        if (actualK !== selectedK) {
+            selectedK = actualK;
+            if (kSlider) {
+                kSlider.value = selectedK;
+            }
+            if (kValueEl) {
+                kValueEl.textContent = String(selectedK);
+            }
+        }
 
         // Plot points and centroids
     function plotRGBWithCentroids(r, g, b, name, size, color, centroids, camera) {
+            const plotContainer = document.getElementById('plot');
+            if (!plotContainer) {
+                return;
+            }
+            
             let markerSize = size;
             if (!markerSize || markerSize.length === 0) {
                 markerSize = Array(r.length).fill(10);
@@ -370,20 +433,40 @@ function processImageForPlot(src, name) {
                 layout.width = Math.min(window.innerWidth, 800);
                 layout.height = Math.max(300, window.innerHeight - 200);
             }
-            // Use Plotly.react to update traces/layout in-place and preserve user interactions
-            Plotly.react('plot', [trace, centroidTrace], layout).then(() => {
-                try {
-                    Plotly.relayout('plot', {width: layout.width, height: layout.height});
-                } catch (e) {
-                    console.log('[DEBUG] relayout failed', e);
+            // Use Plotly.newPlot to create/update the plot
+            Plotly.newPlot('plot', [trace, centroidTrace], layout, {responsive: true}).then(() => {
+                // Check if plot was actually rendered
+                const plotContainer = document.getElementById('plot');
+                if (plotContainer) {
+                    // Force a relayout to ensure proper sizing
+                    setTimeout(() => {
+                        try {
+                            Plotly.relayout('plot', {width: layout.width, height: layout.height});
+                        } catch (e) {
+                            console.warn('Failed to resize plot:', e);
+                        }
+                    }, 100);
                 }
-                if (camera) {
-                    try {
-                        Plotly.relayout('plot', {'scene.camera': camera});
-                    } catch (e) {
-                        console.log('[DEBUG] reapplying camera failed', e);
-                    }
-                }
+            }).catch((error) => {
+                console.error('Failed to create plot:', error);
+                // Fallback: try to create a simple 2D plot to test if Plotly works at all
+                const fallbackTrace = {
+                    x: r.slice(0, 100),
+                    y: g.slice(0, 100),
+                    mode: 'markers',
+                    type: 'scatter'
+                };
+                const fallbackLayout = {
+                    title: 'Fallback 2D Plot',
+                    xaxis: {title: 'Red'},
+                    yaxis: {title: 'Green'}
+                };
+
+                Plotly.newPlot('plot', [fallbackTrace], fallbackLayout).then(() => {
+                    console.log('Fallback 2D plot created successfully');
+                }).catch((fallbackError) => {
+                    console.error('Fallback plot also failed:', fallbackError);
+                });
             });
         }
 
@@ -457,7 +540,6 @@ function processImageForPlot(src, name) {
                     }
                 }
                 rCtx.putImageData(reconImgData, 0, 0);
-                console.log('[DEBUG] Reconstruction created', { reconW, reconH });
 
                 // Insert/update DOM areas
                 const originalAreaEl = document.getElementById('originalArea');
@@ -548,7 +630,6 @@ function processImageForPlot(src, name) {
                         origImg.style.height = displayH + 'px';
                     }
                 } catch (e) {
-                    console.log('[DEBUG] renderReconstruction sizing/scale failed', e);
                     if (reconstructedAreaEl) {
                         reconstructedAreaEl.innerHTML = '';
                         const fallbackRow = document.createElement('div');
@@ -598,9 +679,26 @@ function processImageForPlot(src, name) {
             // expose a rerun handler that re-initializes centroids randomly and re-renders everything
             window.rerunClustering = function() {
                 try {
-                    const useK = Math.max(1, Math.min(selectedK || 3, pixelData.length));
-                    const newKmeans = kmeans(pixelData, useK, 8);
-                    const newCentroids = newKmeans.centroids;
+                    const useK = Math.max(1, Math.min(selectedK || 3, sampledPixels.length));
+                    const newKmeans = kmeans(sampledPixels, useK, 8);
+                    let newCentroids = newKmeans.centroids;
+
+                    // Apply cluster merging to the new centroids (using same logic)
+                    if (shouldApplyMerging(newCentroids, sampledPixels)) {
+                        newCentroids = mergeCloseClusters(newCentroids, sampledPixels);
+                    }
+                    
+                    // Update the k value and UI to reflect the actual number of centroids after merging
+                    const actualK = newCentroids.length;
+                    if (actualK !== selectedK) {
+                        selectedK = actualK;
+                        if (kSlider) {
+                            kSlider.value = selectedK;
+                        }
+                        if (kValueEl) {
+                            kValueEl.textContent = String(selectedK);
+                        }
+                    }
                     // update plot and summary
                     // try to preserve current camera view if user has rotated/zoomed
                     let currentCamera = null;
@@ -610,7 +708,7 @@ function processImageForPlot(src, name) {
                             currentCamera = gd._fullLayout.scene.camera;
                         }
                     } catch (err) {
-                        // ignore and use default
+                        console.warn('Failed to preserve camera view:', err);
                     }
                     plotRGBWithCentroids(rArr, gArr, bArr, name, sizeArr, colorArr, newCentroids, currentCamera);
                     let centroidHtml = '<div style="margin-top:10px;font-size:1.1em"><b>K-means Centroids (k=' + newCentroids.length + '):</b><br>';
@@ -623,7 +721,7 @@ function processImageForPlot(src, name) {
                     // re-render reconstruction
                     renderReconstruction(newCentroids);
                 } catch (e) {
-                    console.log('[DEBUG] rerunClustering failed', e);
+                    console.error('Failed to rerun clustering:', e);
                 }
             };
         }
@@ -634,7 +732,9 @@ function processImageForPlot(src, name) {
 }
 
 imageSelect.addEventListener('change', () => {
-    if (ignoreDropdownChange) return;
+    if (ignoreDropdownChange) {
+        return;
+    }
     if (imageSelect.value === '__uploaded__' && uploadedImageSrc && uploadedImageName) {
         processImageForPlot(uploadedImageSrc, uploadedImageName);
     } else if (imageSelect.value) {
