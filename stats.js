@@ -766,38 +766,46 @@ function processImageForPlot(src, name) {
 
                 // Layout sizing and create displayCanvas
                 try {
-                    const sampleReconLabel = reconRowEl && reconRowEl.querySelector('.recon-label');
-                    const sampleOrigLabel = origRowEl && origRowEl.querySelector('.recon-label');
-                    const labelWidth = Math.max((sampleReconLabel && sampleReconLabel.clientWidth) || 92, (sampleOrigLabel && sampleOrigLabel.clientWidth) || 92);
-                    const rowWidth = Math.min((reconRowEl && reconRowEl.clientWidth) || Infinity, (origRowEl && origRowEl.clientWidth) || Infinity);
-                    const gap = 12;
-                    const availableWidth = Math.max(64, Math.floor((isFinite(rowWidth) ? rowWidth : Math.max(reconstructedAreaEl.clientWidth, originalAreaEl.clientWidth)) - labelWidth - gap - 4));
-                    const targetHeight = Math.max(64, Math.floor(Math.min((reconstructedAreaEl && reconstructedAreaEl.clientHeight) || Infinity, (originalAreaEl && originalAreaEl.clientHeight) || Infinity)));
-                    const finalTargetHeight = (!isFinite(targetHeight) || targetHeight <= 0) ? parseInt(getComputedStyle(document.documentElement).getPropertyValue('--recon-display-height')) || 260 : targetHeight;
-                    const dpr = window.devicePixelRatio || 1;
-                    const displayW = availableWidth;
-                    const displayH = finalTargetHeight;
-
+                    // Calculate maximum available space within the container
+                    const containerHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--recon-display-height')) || 260;
+                    const containerWidth = (reconstructedAreaEl && reconstructedAreaEl.clientWidth) || 400;
+                    
+                    // Account for padding, margins, and borders
+                    const availableHeight = containerHeight - 48; // 24px padding + 24px margin/border
+                    const availableWidth = containerWidth - 140; // 120px for label + 20px for gaps/borders
+                    
+                    // Calculate size that fits within container while maintaining aspect ratio
+                    const originalAspectRatio = w / h;
+                    let finalWidth, finalHeight;
+                    
+                    // Try fitting to available width first
+                    finalWidth = Math.min(availableWidth, w);
+                    finalHeight = Math.round(finalWidth / originalAspectRatio);
+                    
+                    // If height exceeds available space, fit to height instead
+                    if (finalHeight > availableHeight) {
+                        finalHeight = availableHeight;
+                        finalWidth = Math.round(finalHeight * originalAspectRatio);
+                    }
+                    
+                    // Ensure minimum reasonable size
+                    finalWidth = Math.max(finalWidth, 100);
+                    finalHeight = Math.max(finalHeight, 75);
+                    
+                    // Create canvas with calculated dimensions
                     const displayCanvas = document.createElement('canvas');
                     displayCanvas.className = 'recon-media';
-                    displayCanvas.style.width = displayW + 'px';
-                    displayCanvas.style.height = displayH + 'px';
-                    displayCanvas.width = Math.max(1, Math.floor(displayW * dpr));
-                    displayCanvas.height = Math.max(1, Math.floor(displayH * dpr));
-                    displayCanvas.style.marginTop = '12px';
-                    displayCanvas.style.background = 'transparent';
+                    displayCanvas.width = finalWidth;
+                    displayCanvas.height = finalHeight;
+                    displayCanvas.style.width = finalWidth + 'px';
+                    displayCanvas.style.height = finalHeight + 'px';
+                    
                     const dctx = displayCanvas.getContext('2d');
                     dctx.imageSmoothingEnabled = true;
                     dctx.imageSmoothingQuality = 'high';
-                    dctx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-                    const scaleX = displayCanvas.width / reconCanvas.width;
-                    const scaleY = displayCanvas.height / reconCanvas.height;
-                    const scaleLocal = Math.min(scaleX, scaleY);
-                    const destW = Math.max(1, Math.round(reconCanvas.width * scaleLocal));
-                    const destH = Math.max(1, Math.round(reconCanvas.height * scaleLocal));
-                    const offsetX = Math.round((displayCanvas.width - destW) / 2);
-                    const offsetY = Math.round((displayCanvas.height - destH) / 2);
-                    dctx.drawImage(reconCanvas, 0, 0, reconCanvas.width, reconCanvas.height, offsetX, offsetY, destW, destH);
+                    
+                    // Draw the reconstructed image at calculated size
+                    dctx.drawImage(reconCanvas, 0, 0, reconCanvas.width, reconCanvas.height, 0, 0, finalWidth, finalHeight);
 
                     if (reconRowEl) {
                         const holder = reconRowEl.querySelector('div:last-child');
@@ -805,10 +813,12 @@ function processImageForPlot(src, name) {
                         holder.appendChild(displayCanvas);
                     }
                     if (origImg) {
-                        origImg.width = displayW;
-                        origImg.height = displayH;
-                        origImg.style.width = displayW + 'px';
-                        origImg.style.height = displayH + 'px';
+                        // Set the original image to exactly the same constrained size
+                        origImg.style.width = finalWidth + 'px';
+                        origImg.style.height = finalHeight + 'px';
+                        origImg.style.objectFit = 'fill'; // Fill exactly to avoid white padding
+                        origImg.removeAttribute('width');
+                        origImg.removeAttribute('height');
                     }
                 } catch (e) {
                     if (reconstructedAreaEl) {
@@ -1063,7 +1073,7 @@ function processImageForPlot(src, name) {
                     const downloadK = selectedK || 3;
                     console.log(`Download: Running fresh k-means with exact k=${downloadK}`);
                     
-                    // Clean the data by removing stray pixels before clustering (if enabled)
+                    // Apply stray pixel removal based on checkbox state (consistent with display)
                     const cleanedPixelsForDownload = removeStrayPixelsEnabled ? 
                         removeStrayPixels(sampledPixels, 0.05, 3) : 
                         sampledPixels;
@@ -1074,8 +1084,12 @@ function processImageForPlot(src, name) {
                         return;
                     }
                     
-                    // Run k-means with more iterations for better quality
-                    const downloadKmeans = kmeans(cleanedPixelsForDownload, downloadK, 16);
+                    // Use the same number of runs as the main program
+                    const numRuns = cleanedPixelsForDownload.length < 200000 ? 32 : 8;
+                    console.log(`Download: Using ${numRuns} clustering runs for optimal quality`);
+                    
+                    // Run k-means with the same parameters as main program
+                    const downloadKmeans = kmeans(cleanedPixelsForDownload, downloadK, numRuns);
                     let downloadCentroids = downloadKmeans.centroids;
                     
                     // Do NOT merge identical centroids for download - preserve exact k colors

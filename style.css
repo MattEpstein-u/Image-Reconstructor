@@ -345,6 +345,9 @@ body {
     /* fixed visual display height so original and reconstructed match */
     --recon-display-height: 260px;
     height: var(--recon-display-height);
+    min-height: var(--recon-display-height);
+    max-height: var(--recon-display-height);
+    overflow: hidden; /* Prevent any content from spilling out */
 }
 .recon-label {
     flex: 0 0 92px; /* fixed column for label */
@@ -361,15 +364,28 @@ body {
     width: 100%;
 }
 .recon-media {
-    flex: 1 1 0; /* fill remaining space identically in both rows */
+    flex: 0 0 auto; /* Don't grow/shrink, use explicit size */
     min-width: 0; /* allow proper flex shrinking */
-    width: auto; /* allow height to drive sizing so images/canvas keep aspect ratio */
-    height: 100%; /* match the fixed row height set on the parent */
     display: block;
     border: 1px solid #e6e6e6;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    object-fit: contain;
     box-sizing: border-box;
+    /* Ensure both img and canvas elements size identically */
+    max-width: 100%;
+    max-height: 100%;
+    /* Identical margins, padding, and background for both elements */
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    /* Prevent overflow and ensure proper containment */
+    overflow: hidden;
+    /* Remove object-fit to prevent white padding */
+    object-fit: none;
+}
+
+/* Ensure canvas elements also respect object-fit-like behavior */
+.recon-media[data-type="canvas"] {
+    object-fit: initial; /* Canvas doesn't use object-fit, but we'll handle sizing in JS */
 }
 .recon-swatches {
     display: flex;
@@ -540,8 +556,8 @@ body {
 
 /* Style the download button to match other controls */
 #downloadBtn {
-    font-size: 1rem;
-    padding: 10px 18px;
+    font-size: 0.8rem;
+    padding: 8px 10px;
     border-radius: 10px;
     border: 1px solid #d1d5db;
     background: #ffffff;

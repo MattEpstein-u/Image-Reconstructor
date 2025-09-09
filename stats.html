@@ -20,7 +20,7 @@
                 <option value="" disabled selected>Choose an image...</option>
             </select>
             <button id="rerunBtn">Re-run clustering</button>
-            <button id="downloadBtn">Download full quality</button>
+            <button id="downloadBtn">Download reconstruction</button>
             <label class="k-control">
                 <span class="k-label">k</span>
                 <input id="kSlider" type="range" min="2" max="10" value="3">
@@ -31,7 +31,6 @@ Re-run clustering</span>
             <label class="stray-control">
                 <input type="checkbox" id="removeStrayPixels" checked>
                 <span class="stray-label">Remove stray pixels</span>
-                <span class="stray-hint">Filter out isolated pixels</span>
             </label>
             <input type="file" id="fileInput" accept="image/*" style="display:none;">
         </div>
