@@ -1053,6 +1053,156 @@ function processImageForPlot(src, name) {
                     console.error('Failed to rerun clustering:', e);
                 }
             };
+
+            // expose a download handler that creates full quality reconstruction and downloads it
+            window.downloadFullQuality = function() {
+                try {
+                    console.log('Creating full quality reconstruction for download...');
+                    
+                    // Run a fresh k-means clustering specifically for download with exact user k
+                    const downloadK = selectedK || 3;
+                    console.log(`Download: Running fresh k-means with exact k=${downloadK}`);
+                    
+                    // Clean the data by removing stray pixels before clustering (if enabled)
+                    const cleanedPixelsForDownload = removeStrayPixelsEnabled ? 
+                        removeStrayPixels(sampledPixels, 0.05, 3) : 
+                        sampledPixels;
+                    
+                    if (cleanedPixelsForDownload.length === 0) {
+                        console.error('No pixels available for download reconstruction');
+                        alert('No pixels available for reconstruction');
+                        return;
+                    }
+                    
+                    // Run k-means with more iterations for better quality
+                    const downloadKmeans = kmeans(cleanedPixelsForDownload, downloadK, 16);
+                    let downloadCentroids = downloadKmeans.centroids;
+                    
+                    // Do NOT merge identical centroids for download - preserve exact k colors
+                    console.log(`Download: Using ${downloadCentroids.length} centroids (preserving exact k=${downloadK})`);
+                    
+                    // If we somehow got fewer centroids than requested, pad with random colors
+                    while (downloadCentroids.length < downloadK) {
+                        // Add a random color centroid
+                        downloadCentroids.push([Math.random(), Math.random(), Math.random()]);
+                        console.log(`Download: Added random centroid to reach k=${downloadK}`);
+                    }
+                    
+                    // If we got more centroids than requested (shouldn't happen), trim to exact k
+                    if (downloadCentroids.length > downloadK) {
+                        downloadCentroids = downloadCentroids.slice(0, downloadK);
+                        console.log(`Download: Trimmed to exact k=${downloadK} centroids`);
+                    }
+
+                    // Use original full-size image data for reconstruction
+                    const fullCanvas = document.createElement('canvas');
+                    fullCanvas.width = canvas.width;
+                    fullCanvas.height = canvas.height;
+                    const fullCtx = fullCanvas.getContext('2d');
+                    const fullImageData = fullCtx.createImageData(canvas.width, canvas.height);
+
+                    function nearestCentroidForDownload(rgb) {
+                        let bestIdx = 0;
+                        let bestDist = Infinity;
+                        for (let i = 0; i < downloadCentroids.length; i++) {
+                            const c = downloadCentroids[i];
+                            const dr = rgb[0] - c[0];
+                            const dg = rgb[1] - c[1];
+                            const db = rgb[2] - c[2];
+                            const d = dr*dr + dg*dg + db*db;
+                            if (d < bestDist) { bestDist = d; bestIdx = i; }
+                        }
+                        return bestIdx;
+                    }
+
+                    // Reconstruct every pixel at full resolution
+                    for (let i = 0; i < imageData.data.length; i += 4) {
+                        const sr = imageData.data[i] / 255;
+                        const sg = imageData.data[i + 1] / 255;
+                        const sb = imageData.data[i + 2] / 255;
+                        const sa = imageData.data[i + 3]; // preserve alpha
+                        
+                        const cIdx = nearestCentroidForDownload([sr, sg, sb]);
+                        const cc = downloadCentroids[cIdx];
+                        
+                        fullImageData.data[i] = Math.round(cc[0] * 255);
+                        fullImageData.data[i + 1] = Math.round(cc[1] * 255);
+                        fullImageData.data[i + 2] = Math.round(cc[2] * 255);
+                        fullImageData.data[i + 3] = sa; // preserve original alpha
+                    }
+
+                    fullCtx.putImageData(fullImageData, 0, 0);
+
+                    // Determine the file format and name
+                    let fileName = name || 'reconstructed_image';
+                    let mimeType = 'image/png'; // default to PNG
+                    let fileExtension = '.png';
+
+                    // Try to preserve original format if uploaded image
+                    if (imageSelect.value === '__uploaded__' && uploadedImageName) {
+                        const originalExt = uploadedImageName.toLowerCase().split('.').pop();
+                        if (originalExt === 'jpg' || originalExt === 'jpeg') {
+                            mimeType = 'image/jpeg';
+                            fileExtension = '.jpg';
+                        } else if (originalExt === 'png') {
+                            mimeType = 'image/png';
+                            fileExtension = '.png';
+                        } else if (originalExt === 'webp') {
+                            mimeType = 'image/webp';
+                            fileExtension = '.webp';
+                        }
+                        // Remove original extension from filename
+                        fileName = uploadedImageName.replace(/\.[^/.]+$/, '');
+                    } else if (fileName.includes('.')) {
+                        // For gallery images, preserve format
+                        const originalExt = fileName.toLowerCase().split('.').pop();
+                        if (originalExt === 'jpg' || originalExt === 'jpeg') {
+                            mimeType = 'image/jpeg';
+                            fileExtension = '.jpg';
+                        }
+                        fileName = fileName.replace(/\.[^/.]+$/, '');
+                    }
+
+                    // Add reconstruction suffix with exact k value used
+                    fileName += '_reconstructed_k' + downloadK + fileExtension;
+
+                    // Convert canvas to blob and download
+                    fullCanvas.toBlob(function(blob) {
+                        if (!blob) {
+                            console.error('Failed to create blob from canvas');
+                            alert('Failed to create download file');
+                            return;
+                        }
+
+                        // Create download link
+                        const url = URL.createObjectURL(blob);
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = url;
+                        downloadLink.download = fileName;
+                        downloadLink.style.display = 'none';
+                        
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+                        
+                        // Clean up the URL object
+                        setTimeout(() => URL.revokeObjectURL(url), 100);
+                        
+                        console.log(`Downloaded full quality reconstruction: ${fileName} with exactly ${downloadK} colors`);
+                        
+                        // Log the colors used for verification
+                        console.log('Download centroids used:');
+                        downloadCentroids.forEach((c, i) => {
+                            console.log(`C${i+1}: rgb(${Math.round(c[0]*255)}, ${Math.round(c[1]*255)}, ${Math.round(c[2]*255)})`);
+                        });
+                        
+                    }, mimeType, mimeType === 'image/jpeg' ? 0.95 : undefined); // High quality for JPEG
+                    
+                } catch (e) {
+                    console.error('Failed to download full quality reconstruction:', e);
+                    alert('Failed to create download. Please try again.');
+                }
+            };
         }
     };
     img.onerror = function() {
@@ -1082,6 +1232,14 @@ const rerunBtn = document.getElementById('rerunBtn');
 if (rerunBtn) {
     rerunBtn.addEventListener('click', () => {
         if (typeof window.rerunClustering === 'function') window.rerunClustering();
+    });
+}
+
+// Wire the Download full quality button (if present)
+const downloadBtn = document.getElementById('downloadBtn');
+if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+        if (typeof window.downloadFullQuality === 'function') window.downloadFullQuality();
     });
 }
 

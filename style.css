@@ -519,6 +519,44 @@ body {
     box-shadow: 0 8px 26px rgba(59,130,246,0.06);
 }
 
+/* Style the rerun clustering button to match other controls */
+#rerunBtn {
+    font-size: 1rem;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 6px rgba(16,24,40,0.04);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+#rerunBtn:focus, #rerunBtn:hover {
+    border-color: #3b82f6;
+    background: #f8fbff;
+    box-shadow: 0 8px 26px rgba(59,130,246,0.06);
+}
+
+/* Style the download button to match other controls */
+#downloadBtn {
+    font-size: 1rem;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 6px rgba(16,24,40,0.04);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+#downloadBtn:focus, #downloadBtn:hover {
+    border-color: #3b82f6;
+    background: #f8fbff;
+    box-shadow: 0 8px 26px rgba(59,130,246,0.06);
+}
+
 /* Dropdown label styling */
 .dropdown-label {
     font-size: 1rem;
