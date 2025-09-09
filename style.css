@@ -445,8 +445,11 @@ body {
     text-align: left;
     font-weight: 600;
     color: #374151;
-    font-size: 0.8rem;
-    line-height: 1.1;
+    font-size: 0.75rem; /* Smaller font size */
+    line-height: 1.2; /* Tighter line height for wrapping */
+    word-wrap: break-word; /* Enable word wrapping */
+    overflow-wrap: break-word; /* Additional wrapping support */
+    white-space: normal; /* Allow text to wrap */
 }
 .recon-row {
     display: flex;
@@ -470,8 +473,8 @@ body {
     background: transparent;
     /* Prevent overflow and ensure proper containment */
     overflow: hidden;
-    /* Remove object-fit to prevent white padding */
-    object-fit: none;
+    /* Use fill object-fit to match canvas behavior */
+    object-fit: fill;
 }
 
 /* Ensure canvas elements also respect object-fit-like behavior */
@@ -490,7 +493,7 @@ body {
    Insert a left spacer equal to the label column so the remaining space centers the swatches. */
 .recon-swatches::before {
     content: '';
-    flex: 0 0 80px; /* matches .recon-label flex-basis */
+    flex: 0 0 70px; /* Match mobile label width for consistency */
 }
 
 @media (max-width: 900px) {
@@ -575,9 +578,14 @@ body {
     
     .recon-label {
         flex: 0 0 70px;
-        font-size: 0.75rem;
+        font-size: 0.7rem; /* Even smaller on mobile */
         text-align: left;
-        align-self: center; /* Center the label vertically */
+        align-self: flex-start; /* Align to top to prevent pushing */
+        line-height: 1.2;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+        padding-top: 2px; /* Small top padding for better alignment */
     }
     
     /* Ensure recon-row alignment on mobile */
@@ -597,12 +605,16 @@ body {
         border: 1px solid #e6e6e6; /* Ensure border is preserved on mobile */
         box-shadow: 0 2px 8px rgba(0,0,0,0.04); /* Ensure shadow is preserved on mobile */
         box-sizing: border-box;
+        /* Don't override width/height set by JavaScript */
+        max-width: none !important;
+        max-height: none !important;
+        object-fit: fill !important; /* Ensure consistent object-fit behavior */
     }
     
     /* Force consistent container alignment */
     .recon-original .recon-row,
     .recon-reconstructed .recon-row {
-        align-items: center;
+        align-items: flex-start; /* Align to top to prevent label from pushing image */
         justify-content: flex-start;
         min-height: 140px; /* Ensure consistent container height */
     }
