@@ -1,6 +1,12 @@
 # Image Reconstructor
 
-A small interactive web tool that visualizes an image's colors in 3D RGB space and demonstrates color reconstruction using k-means clustering.
+A- k-means:
+  - Centroids are initialized as uniformly random points in RGB space (independent of the dataset).
+  - Empty-cluster handling: centroids with zero assigned points are reassigned to a random data point during iterations (a pragmatic fix to avoid degenerate clusters).
+  - Small cluster handling: During iterations, centroids with < 8 pixels are reassigned to random data points. After convergence, centroids with < 8 pixels are permanently removed and k is updated accordingly.
+  - The implementation runs multiple random restarts and keeps the run with lowest inertia.
+  - Adaptive runs: Uses 32 runs for images with <200K pixels for better quality, 8 runs for larger images for performance.
+  - Balanced k optimization: After clustering, centroids that are sufficiently close together are automatically and repeatedly merged until no more close pairs exist, allowing the algorithm to reduce k from 6 to 1 if all centroids are in the same area. The merging threshold is set to balance color preservation with optimization. interactive web tool that visualizes an image's colors in 3D RGB space and demonstrates color reconstruction using k-means clustering.
 
 Features
 - Interactive 3D scatter plot of image colors (Red, Green, Blue axes) rendered with Plotly.
@@ -26,6 +32,7 @@ Developer notes
   - Centroids are initialized as uniformly random points in RGB space (independent of the dataset).
   - Empty-cluster handling: centroids with zero assigned points are reassigned to a random data point during iterations (a pragmatic fix).
   - The implementation runs multiple random restarts and keeps the run with lowest inertia.
+  - Adaptive runs: Uses 32 runs for images with <200K pixels for better quality, 8 runs for larger images for performance.
   - Balanced k optimization: After clustering, centroids that are sufficiently close together are automatically and repeatedly merged until no more close pairs exist, allowing the algorithm to reduce k from 6 to 1 if all centroids are in the same area. The merging threshold is set to balance color preservation with optimization.
 - Performance:
   - The script samples up to `PIXEL_LIMIT` pixels (default 200,000) to analyze large images, and limits the number of displayed pixels to `MAX_PLOT_POINTS` (default 1,000). See `stats.js` to tune these values.

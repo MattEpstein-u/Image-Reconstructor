@@ -470,21 +470,33 @@ body {
     box-shadow: 0 8px 26px rgba(59,130,246,0.06);
 }
 
-/* Make the re-run button visually match the upload/select controls */
-#rerunBtn {
-    font-size: 1rem;
-    padding: 10px 18px;
-    border-radius: 10px;
-    border: 1px solid #d1d5db;
-    background: #ffffff;
-    color: #111827;
-    box-shadow: 0 1px 6px rgba(16,24,40,0.04);
+/* Stray pixel removal control styling */
+.stray-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    padding: 6px 8px;
+    border-radius: 8px;
+    margin-left: 8px;
+}
+.stray-control input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #3b82f6;
     cursor: pointer;
 }
-#rerunBtn:focus, #rerunBtn:hover {
-    border-color: #3b82f6;
-    background: #f8fbff;
-    box-shadow: 0 8px 26px rgba(59,130,246,0.06);
+.stray-control .stray-label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+}
+.stray-control .stray-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-left: 4px;
 }
 
 /* Style the home button to match other controls */

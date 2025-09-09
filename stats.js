@@ -8,7 +8,11 @@ let uploadedImageName = null;
 
 let ignoreDropdownChange = false;
 // Selected k for k-means (default 3)
+// IMPORTANT: This value remains unchanged between trials to ensure independence
 let selectedK = 3;
+
+// Control for stray pixel removal (default enabled)
+let removeStrayPixelsEnabled = true;
 
 // Wire up the k slider control if present
 const kSlider = document.getElementById('kSlider');
@@ -19,6 +23,15 @@ if (kSlider && kValueEl) {
         kValueEl.textContent = String(selectedK);
     });
 
+}
+
+// Wire up the stray pixel removal checkbox
+const removeStrayPixelsCheckbox = document.getElementById('removeStrayPixels');
+if (removeStrayPixelsCheckbox) {
+    removeStrayPixelsCheckbox.addEventListener('change', (e) => {
+        removeStrayPixelsEnabled = e.target.checked;
+        console.log(`Stray pixel removal ${removeStrayPixelsEnabled ? 'enabled' : 'disabled'}`);
+    });
 }
 
 function populateDropdown() {
@@ -194,6 +207,78 @@ function processImageForPlot(src, name) {
             return;
         }
         
+        // Function to remove stray pixels (outliers with few neighbors)
+        function removeStrayPixels(pixels, neighborThreshold = 0.05, minNeighbors = 3) {
+            console.log(`Removing stray pixels: checking ${pixels.length} pixels for local density...`);
+            
+            if (pixels.length <= minNeighbors) {
+                console.log('Not enough pixels to filter stray ones');
+                return pixels;
+            }
+            
+            const cleanedPixels = [];
+            const totalPixels = pixels.length;
+            
+            // For performance with large datasets, limit neighbor search space
+            const maxSearchNeighbors = Math.min(1000, Math.floor(pixels.length / 10));
+            
+            // For each pixel, count neighbors within threshold distance
+            for (let i = 0; i < pixels.length; i++) {
+                const pixel = pixels[i];
+                let neighborCount = 0;
+                
+                // Count neighbors (excluding self) - limit search for performance
+                const searchLimit = Math.min(pixels.length, i + maxSearchNeighbors);
+                for (let j = Math.max(0, i - maxSearchNeighbors); j < searchLimit; j++) {
+                    if (i === j) continue; // Skip self
+                    
+                    const otherPixel = pixels[j];
+                    
+                    // Calculate Euclidean distance in RGB space
+                    const distance = Math.sqrt(
+                        Math.pow(pixel[0] - otherPixel[0], 2) +
+                        Math.pow(pixel[1] - otherPixel[1], 2) +
+                        Math.pow(pixel[2] - otherPixel[2], 2)
+                    );
+                    
+                    // Count as neighbor if within threshold
+                    if (distance <= neighborThreshold) {
+                        neighborCount++;
+                        
+                        // Early exit if we already have enough neighbors
+                        if (neighborCount >= minNeighbors) {
+                            break;
+                        }
+                    }
+                }
+                
+                // Keep pixel if it has enough neighbors
+                if (neighborCount >= minNeighbors) {
+                    cleanedPixels.push(pixel);
+                }
+            }
+            
+            const removedCount = totalPixels - cleanedPixels.length;
+            const removedPercentage = ((removedCount / totalPixels) * 100).toFixed(1);
+            
+            console.log(`Removed ${removedCount} stray pixels (${removedPercentage}%) - kept ${cleanedPixels.length} pixels`);
+            console.log(`Neighbor threshold: ${neighborThreshold}, minimum neighbors required: ${minNeighbors}`);
+            
+            return cleanedPixels;
+        }
+        
+        // Clean the data by removing stray pixels (if enabled)
+        if (removeStrayPixelsEnabled) {
+            sampledPixels = removeStrayPixels(sampledPixels, 0.05, 3); // 5% RGB distance, minimum 3 neighbors
+        } else {
+            console.log('Stray pixel removal disabled - using all pixels');
+        }
+        
+        if (sampledPixels.length === 0) {
+            plotDiv.innerHTML = `<span style='color:red;'>No pixels remained after removing stray pixels.</span>`;
+            return;
+        }
+        
         // Prepare arrays for Plotly - sample for visualization if too many points
         const MAX_PLOT_POINTS = 1000;
         let plotPixels = sampledPixels;
@@ -259,11 +344,11 @@ function processImageForPlot(src, name) {
                         counts[c]++;
                     }
                     for (let j=0; j<k; j++) {
-                        if (counts[j] > 0) {
+                        if (counts[j] >= 8) {
                             centroids[j] = [sums[j][0]/counts[j], sums[j][1]/counts[j], sums[j][2]/counts[j]];
                         } else {
-                            // Empty cluster: reassign centroid to a random data point
-                            // This is a common practical fix to avoid degenerate clusters
+                            // Small cluster (< 8 pixels): reassign centroid to a random data point
+                            // This prevents clusters from becoming too small during iterations
                             const idx = Math.floor(Math.random() * data.length);
                             centroids[j] = [...data[idx]];
                         }
@@ -285,84 +370,180 @@ function processImageForPlot(src, name) {
 
         // Prepare pixel data for kmeans
         const pixelData = sampledPixels;
-    // choose k from selectedK but don't exceed available pixels
-    let k = Math.max(1, Math.min(selectedK || 3, sampledPixels.length));
-    const kmeansResult = kmeans(pixelData, k, 8);
+    // Use the user's selected k value directly
+    let k = selectedK || 3;
+    console.log(`Starting k-means with user selected k=${k}`);
+    // Use more runs for smaller images to get better clustering quality
+    const numRuns = sampledPixels.length < 200000 ? 32 : 8;
+    const kmeansResult = kmeans(pixelData, k, numRuns);
     let centroids = kmeansResult.centroids;
+    let assignments = kmeansResult.assignments;
+
+    // Function to merge identical centroids and update assignments
+    function mergeIdenticalCentroids(centroids, assignments) {
+        const tolerance = 0.001; // Very small tolerance for floating point comparison
+        
+        // Create a map to track which centroids are identical
+        const centroidMap = new Map();
+        const mergedCentroids = [];
+        const centroidIndexMap = new Map(); // Maps old index to new index
+        
+        centroids.forEach((centroid, index) => {
+            // Create a key for this centroid (rounded to handle floating point precision)
+            const key = centroid.map(c => Math.round(c / tolerance) * tolerance).join(',');
+            
+            if (centroidMap.has(key)) {
+                // This centroid is identical to an existing one
+                const existingIndex = centroidMap.get(key);
+                centroidIndexMap.set(index, existingIndex);
+            } else {
+                // This is a new unique centroid
+                const newIndex = mergedCentroids.length;
+                centroidMap.set(key, newIndex);
+                mergedCentroids.push([...centroid]);
+                centroidIndexMap.set(index, newIndex);
+            }
+        });
+        
+        // Update assignments to use the new centroid indices
+        const updatedAssignments = assignments.map(assignment => centroidIndexMap.get(assignment));
+        
+        console.log(`Merged identical centroids: ${centroids.length} → ${mergedCentroids.length}`);
+        
+        return {
+            centroids: mergedCentroids,
+            assignments: updatedAssignments
+        };
+    }
+
+    // Merge identical centroids and update assignments
+    const mergedResult = mergeIdenticalCentroids(centroids, assignments);
+    centroids = mergedResult.centroids;
+    assignments = mergedResult.assignments;
+    
+    // Update k to reflect the actual number of unique centroids
+    k = centroids.length;
+    console.log(`Final k after merging identical centroids: ${k}`);
+
+    // FINAL OPTIMIZATION: Split large clusters to better capture color variations
+    function splitLargeClusters(centroids, assignments, data) {
+        // Removed automatic k adjustment - user controls k directly
+        return centroids;
+    }
+
+    // Apply cluster splitting to improve color representation
+    centroids = splitLargeClusters(centroids, assignments, pixelData);
 
         // Function to merge clusters that are too close together
         // IMPORTANT: This is called ONLY after k-means has fully converged
         function mergeCloseClusters(centroids, data, distanceThreshold = 0.15) {
-            if (centroids.length <= 1) return centroids;
-
-            function distance(a, b) {
-                return Math.pow(a[0]-b[0],2) + Math.pow(a[1]-b[1],2) + Math.pow(a[2]-b[2],2);
-            }
-
-            let mergedCentroids = [...centroids];
-            let merged = true;
-            let iterations = 0;
-            const maxIterations = 50; // Allow many iterations to continue merging until no more close pairs exist
-
-            // Use a balanced threshold for merging - only merge centroids that are very close
-            const mergeThreshold = distanceThreshold * 0.5; // Balanced merging
-
-            while (merged && mergedCentroids.length > 1 && iterations < maxIterations) {
-                merged = false;
-                iterations++;
-
-                // Find the closest pair of centroids
-                let minDistance = Infinity;
-                let closestPair = [-1, -1];
-
-                for (let i = 0; i < mergedCentroids.length; i++) {
-                    for (let j = i + 1; j < mergedCentroids.length; j++) {
-                        const dist = distance(mergedCentroids[i], mergedCentroids[j]);
-                        if (dist < minDistance) {
-                            minDistance = dist;
-                            closestPair = [i, j];
-                        }
-                    }
-                }
-
-                // Only merge if centroids are sufficiently close - be very conservative
-                if (minDistance < mergeThreshold && mergedCentroids.length > 1) {
-                    const [idx1, idx2] = closestPair;
-
-                    // Simple merging: remove the second centroid
-                    // The k-means algorithm has already converged, so this is safe
-                    mergedCentroids.splice(idx2, 1);
-                    merged = true;
-                }
-            }
-
-            return mergedCentroids;
+            // Removed automatic k adjustment - user controls k directly
+            return centroids;
         }
 
         // Apply cluster merging to avoid redundant clusters
         // More aggressive merging - apply whenever there are multiple centroids
         function shouldApplyMerging(centroids, data) {
-            if (centroids.length <= 1) return false; // Don't merge if we have only 1 centroid
-
-            // Always apply merging for multiple centroids to allow aggressive consolidation
-            // This will continue until all sufficiently close centroids are merged
-            return true;
+            // Removed automatic merging - user controls k directly
+            return false;
         }
 
         if (shouldApplyMerging(centroids, pixelData)) {
             centroids = mergeCloseClusters(centroids, pixelData);
         }
 
+        // CLEANUP: Remove clusters with fewer pixels than the proportional threshold
+        function cleanupSmallClusters(centroids, assignments, data) {
+            // Removed automatic k adjustment - user controls k directly
+            return { centroids, assignments };
+        }
+
+        // Apply cleanup to remove clusters below the proportional threshold
+        const cleanupResult = cleanupSmallClusters(centroids, assignments, pixelData);
+        centroids = cleanupResult.centroids;
+        assignments = cleanupResult.assignments;
+        function countPixelsPerCentroid(centroids, assignments, data) {
+            const pixelCounts = new Array(centroids.length).fill(0);
+            const clusterPixels = Array.from({length: centroids.length}, () => []);
+
+            for (let i = 0; i < assignments.length; i++) {
+                const clusterIdx = assignments[i];
+                if (clusterIdx < centroids.length) { // Safety check
+                    const pixel = data[i];
+                    const centroid = centroids[clusterIdx];
+
+                    // Skip if data element is undefined or pixel data is invalid - ultra-safe validation
+                    if (!data[i] || !pixel) {
+                        continue; // Skip undefined data elements
+                    }
+
+                    let isValidPixel = false;
+                    try {
+                        isValidPixel = pixel &&
+                                       Array.isArray(pixel) &&
+                                       pixel.length >= 3 &&
+                                       typeof pixel[0] === 'number' &&
+                                       typeof pixel[1] === 'number' &&
+                                       typeof pixel[2] === 'number' &&
+                                       !isNaN(pixel[0]) &&
+                                       !isNaN(pixel[1]) &&
+                                       !isNaN(pixel[2]);
+                    } catch (e) {
+                        // If any error occurs during validation, consider pixel invalid
+                        isValidPixel = false;
+                    }
+
+                    if (!isValidPixel) {
+                        continue;
+                    }
+
+                    // Calculate Euclidean distance in RGB space
+                    const distance = Math.sqrt(
+                        Math.pow(pixel[0] - centroid[0], 2) +
+                        Math.pow(pixel[1] - centroid[1], 2) +
+                        Math.pow(pixel[2] - centroid[2], 2)
+                    );
+
+                    // Only count pixels within a reasonable distance (0.2 in normalized RGB space)
+                    const maxReasonableDistance = 0.2;
+                    if (distance <= maxReasonableDistance) {
+                        pixelCounts[clusterIdx]++;
+                        clusterPixels[clusterIdx].push(pixel);
+                    }
+                }
+            }
+
+            console.log('=== FINAL CLUSTER ANALYSIS ===');
+            console.log(`Total centroids: ${centroids.length}`);
+            console.log(`Total pixels: ${assignments.length}`);
+            console.log('Pixels per centroid:');
+
+            centroids.forEach((centroid, i) => {
+                const count = pixelCounts[i] || 0;
+                const percentage = ((count / assignments.length) * 100).toFixed(1);
+                console.log(`C${i+1}: ${count} pixels (${percentage}%) - RGB(${centroid.map(c => (c * 255).toFixed(0)).join(', ')})`);
+            });
+
+            // Also log to UI if possible
+            const debugInfo = centroids.map((centroid, i) => {
+                const count = pixelCounts[i] || 0;
+                const percentage = ((count / assignments.length) * 100).toFixed(1);
+                return `C${i+1}: ${count} pixels (${percentage}%)`;
+            }).join('\n');
+
+            // Debug display removed - details no longer shown in top right
+
+            return pixelCounts;
+        }
+
+        // Run the debugging analysis
+        const finalPixelCounts = countPixelsPerCentroid(centroids, assignments, pixelData);
+
         // Update the k value and UI to reflect the actual number of centroids after merging
         const actualK = centroids.length;
-        if (actualK !== selectedK) {
-            selectedK = actualK;
-            if (kSlider) {
-                kSlider.value = selectedK;
-            }
-            if (kValueEl) {
-                kValueEl.textContent = String(selectedK);
-            }
+        // Update UI to show the final k value after merging identical centroids
+        if (kValueEl) {
+            kValueEl.textContent = String(k);
         }
 
         // Plot points and centroids
@@ -410,7 +591,7 @@ function processImageForPlot(src, name) {
                 name: 'Centroids'
             };
             const layout = {
-                title: `Interactive RGB Plot — ${name} (k=${centroids.length})`,
+                title: `Interactive RGB Plot — ${name} (k=${k})`,
                 autosize: true,
                 margin: { l: 0, r: 0, b: 0, t: 40, pad: 0 },
                 scene: {
@@ -473,7 +654,7 @@ function processImageForPlot(src, name) {
         plotRGBWithCentroids(rArr, gArr, bArr, name, sizeArr, colorArr, centroids);
 
         // Display centroid RGB values below the plot
-        let centroidHtml = '<div style="margin-top:10px;font-size:1.1em"><b>K-means Centroids (k=' + centroids.length + '):</b><br>';
+        let centroidHtml = '<div style="margin-top:10px;font-size:1.1em"><b>K-means Centroids (k=' + k + '):</b><br>';
         centroids.forEach((c,i)=>{
             centroidHtml += `C${i+1}: <span style="color:rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)});font-weight:bold;">rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})</span><br>`;
         });
@@ -679,25 +860,173 @@ function processImageForPlot(src, name) {
             // expose a rerun handler that re-initializes centroids randomly and re-renders everything
             window.rerunClustering = function() {
                 try {
-                    const useK = Math.max(1, Math.min(selectedK || 3, sampledPixels.length));
-                    const newKmeans = kmeans(sampledPixels, useK, 8);
+                    // Clean the data by removing stray pixels before clustering (if enabled)
+                    const cleanedPixels = removeStrayPixelsEnabled ? 
+                        removeStrayPixels(sampledPixels, 0.05, 3) : 
+                        sampledPixels;
+                    
+                    if (cleanedPixels.length === 0) {
+                        console.error('No pixels remained after removing stray pixels in rerun');
+                        return;
+                    }
+                    
+                    const useK = selectedK || 3;
+                    console.log(`Rerun: Starting k-means with user selected k=${useK}`);
+                    // Use more runs for smaller images to get better clustering quality
+                    const numRuns = cleanedPixels.length < 200000 ? 32 : 8;
+                    const newKmeans = kmeans(cleanedPixels, useK, numRuns);
                     let newCentroids = newKmeans.centroids;
+                    let newAssignments = newKmeans.assignments;
+
+                    // Function to merge identical centroids and update assignments for rerun
+                    function mergeIdenticalCentroidsRerun(centroids, assignments) {
+                        const tolerance = 0.001; // Very small tolerance for floating point comparison
+                        
+                        // Create a map to track which centroids are identical
+                        const centroidMap = new Map();
+                        const mergedCentroids = [];
+                        const centroidIndexMap = new Map(); // Maps old index to new index
+                        
+                        centroids.forEach((centroid, index) => {
+                            // Create a key for this centroid (rounded to handle floating point precision)
+                            const key = centroid.map(c => Math.round(c / tolerance) * tolerance).join(',');
+                            
+                            if (centroidMap.has(key)) {
+                                // This centroid is identical to an existing one
+                                const existingIndex = centroidMap.get(key);
+                                centroidIndexMap.set(index, existingIndex);
+                            } else {
+                                // This is a new unique centroid
+                                const newIndex = mergedCentroids.length;
+                                centroidMap.set(key, newIndex);
+                                mergedCentroids.push([...centroid]);
+                                centroidIndexMap.set(index, newIndex);
+                            }
+                        });
+                        
+                        // Update assignments to use the new centroid indices
+                        const updatedAssignments = assignments.map(assignment => centroidIndexMap.get(assignment));
+                        
+                        console.log(`Rerun: Merged identical centroids: ${centroids.length} → ${mergedCentroids.length}`);
+                        
+                        return {
+                            centroids: mergedCentroids,
+                            assignments: updatedAssignments
+                        };
+                    }
+
+                    // Merge identical centroids and update assignments for rerun
+                    const mergedResultRerun = mergeIdenticalCentroidsRerun(newCentroids, newAssignments);
+                    newCentroids = mergedResultRerun.centroids;
+                    newAssignments = mergedResultRerun.assignments;
+                    
+                    // Update k to reflect the actual number of unique centroids for rerun
+                    const finalKRerun = newCentroids.length;
+                    
+                    // Update the global k variable to reflect the merged result
+                    k = finalKRerun;
+                    console.log(`Rerun final k after merging identical centroids: ${k}`);
+
+                    // Apply cluster splitting to improve color representation
+                    newCentroids = splitLargeClusters(newCentroids, newAssignments, cleanedPixels);
 
                     // Apply cluster merging to the new centroids (using same logic)
-                    if (shouldApplyMerging(newCentroids, sampledPixels)) {
-                        newCentroids = mergeCloseClusters(newCentroids, sampledPixels);
+                    if (shouldApplyMerging(newCentroids, cleanedPixels)) {
+                        newCentroids = mergeCloseClusters(newCentroids, cleanedPixels);
                     }
+
+                    // CLEANUP: Remove clusters with fewer pixels than the proportional threshold
+                    function cleanupSmallClustersRerun(centroids, assignments, data) {
+                        // Removed automatic k adjustment - user controls k directly
+                        return { centroids, assignments };
+                    }
+
+                    // Apply cleanup to remove clusters below the proportional threshold
+                    const cleanupResultRerun = cleanupSmallClustersRerun(newCentroids, newAssignments, cleanedPixels);
+                    newCentroids = cleanupResultRerun.centroids;
+                    newAssignments = cleanupResultRerun.assignments;
+                    function countPixelsPerCentroidRerun(centroids, assignments, data) {
+                        const pixelCounts = new Array(centroids.length).fill(0);
+                        const clusterPixels = Array.from({length: centroids.length}, () => []);
+
+                        for (let i = 0; i < assignments.length; i++) {
+                            const clusterIdx = assignments[i];
+                            if (clusterIdx < centroids.length) { // Safety check
+                                const pixel = data[i];
+                                const centroid = centroids[clusterIdx];
+
+                                // Skip if data element is undefined or pixel data is invalid - ultra-safe validation
+                                if (!data[i] || !pixel) {
+                                    continue; // Skip undefined data elements
+                                }
+
+                                let isValidPixel = false;
+                                try {
+                                    isValidPixel = pixel &&
+                                                   Array.isArray(pixel) &&
+                                                   pixel.length >= 3 &&
+                                                   typeof pixel[0] === 'number' &&
+                                                   typeof pixel[1] === 'number' &&
+                                                   typeof pixel[2] === 'number' &&
+                                                   !isNaN(pixel[0]) &&
+                                                   !isNaN(pixel[1]) &&
+                                                   !isNaN(pixel[2]);
+                                } catch (e) {
+                                    // If any error occurs during validation, consider pixel invalid
+                                    isValidPixel = false;
+                                }
+
+                                if (!isValidPixel) {
+                                    continue;
+                                }
+
+                                // Calculate Euclidean distance in RGB space
+                                const distance = Math.sqrt(
+                                    Math.pow(pixel[0] - centroid[0], 2) +
+                                    Math.pow(pixel[1] - centroid[1], 2) +
+                                    Math.pow(pixel[2] - centroid[2], 2)
+                                );
+
+                                // Only count pixels within a reasonable distance (0.2 in normalized RGB space)
+                                const maxReasonableDistance = 0.2;
+                                if (distance <= maxReasonableDistance) {
+                                    pixelCounts[clusterIdx]++;
+                                    clusterPixels[clusterIdx].push(pixel);
+                                }
+                            }
+                        }
+
+                        console.log('=== RERUN CLUSTER ANALYSIS ===');
+                        console.log(`Total centroids: ${centroids.length}`);
+                        console.log(`Total pixels: ${assignments.length}`);
+                        console.log('Pixels per centroid:');
+
+                        centroids.forEach((centroid, i) => {
+                            const count = pixelCounts[i] || 0;
+                            const percentage = ((count / assignments.length) * 100).toFixed(1);
+                            console.log(`C${i+1}: ${count} pixels (${percentage}%) - RGB(${centroid.map(c => (c * 255).toFixed(0)).join(', ')})`);
+                        });
+
+                        // Update debug display
+                        const debugInfo = centroids.map((centroid, i) => {
+                            const count = pixelCounts[i] || 0;
+                            const percentage = ((count / assignments.length) * 100).toFixed(1);
+                            return `C${i+1}: ${count} pixels (${percentage}%)`;
+                        }).join('\n');
+
+                        // Debug display removed - details no longer shown in top right
+
+                        return pixelCounts;
+                    }
+
+                    // Run the debugging analysis for rerun
+                    const rerunPixelCounts = countPixelsPerCentroidRerun(newCentroids, newAssignments, cleanedPixels);
                     
                     // Update the k value and UI to reflect the actual number of centroids after merging
                     const actualK = newCentroids.length;
-                    if (actualK !== selectedK) {
-                        selectedK = actualK;
-                        if (kSlider) {
-                            kSlider.value = selectedK;
-                        }
-                        if (kValueEl) {
-                            kValueEl.textContent = String(selectedK);
-                        }
+                    // Update UI to show the final k value after merging identical centroids
+                    if (kValueEl) {
+                        kValueEl.textContent = String(finalKRerun);
                     }
                     // update plot and summary
                     // try to preserve current camera view if user has rotated/zoomed
@@ -711,7 +1040,7 @@ function processImageForPlot(src, name) {
                         console.warn('Failed to preserve camera view:', err);
                     }
                     plotRGBWithCentroids(rArr, gArr, bArr, name, sizeArr, colorArr, newCentroids, currentCamera);
-                    let centroidHtml = '<div style="margin-top:10px;font-size:1.1em"><b>K-means Centroids (k=' + newCentroids.length + '):</b><br>';
+                    let centroidHtml = '<div style="margin-top:10px;font-size:1.1em"><b>K-means Centroids (k=' + finalKRerun + '):</b><br>';
                     newCentroids.forEach((c,i)=>{
                         centroidHtml += `C${i+1}: <span style="color:rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)});font-weight:bold;">rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})</span><br>`;
                     });
