@@ -114,7 +114,7 @@ function plotRGB(r, g, b, name) {
     const layout = {
         title: `Interactive RGB Plot — ${name}`,
         autosize: true,
-        margin: { l: 0, r: 0, b: 0, t: 40, pad: 0 },
+        margin: { l: 40, r: 40, b: 60, t: 60, pad: 10 }, // Increased margins for better label visibility
         scene: {
             xaxis: {title: 'Red', range: [0, 1]},
             yaxis: {title: 'Green', range: [0, 1]},
@@ -128,12 +128,12 @@ function plotRGB(r, g, b, name) {
     try {
         const container = document.getElementById('plot');
         const w = (container && container.clientWidth) ? container.clientWidth : Math.min(window.innerWidth, 800);
-        const h = (container && container.clientHeight) ? container.clientHeight : Math.max(300, window.innerHeight - 200);
+        const h = (container && container.clientHeight) ? container.clientHeight : Math.max(250, window.innerHeight - 250);
         layout.width = w;
         layout.height = h;
     } catch (e) {
         layout.width = Math.min(window.innerWidth, 800);
-        layout.height = Math.max(300, window.innerHeight - 200);
+        layout.height = Math.max(250, window.innerHeight - 250);
     }
 
             // Use Plotly.newPlot to create/update the plot
@@ -593,7 +593,7 @@ function processImageForPlot(src, name) {
             const layout = {
                 title: `Interactive RGB Plot — ${name} (k=${k})`,
                 autosize: true,
-                margin: { l: 0, r: 0, b: 0, t: 40, pad: 0 },
+                margin: { l: 40, r: 40, b: 60, t: 60, pad: 10 }, // Increased margins for better label visibility
                 scene: {
                     xaxis: {title: 'Red', range: [0, 1]},
                     yaxis: {title: 'Green', range: [0, 1]},

@@ -4,11 +4,43 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 12px 12px 0 12px;
-    margin-bottom: 8px;
+    gap: 10px;
+    padding: 8px 12px 0 12px; /* reduced padding */
+    margin-bottom: 6px; /* reduced margin */
     width: 100%;
     box-sizing: border-box;
+    flex-wrap: wrap; /* Allow wrapping on mobile */
+}
+
+/* Mobile-first responsive controls */
+@media (max-width: 768px) {
+    .dropdown-container {
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+    }
+    
+    .dropdown-container > * {
+        width: 100%;
+        max-width: 300px;
+        text-align: center;
+    }
+    
+    .k-control {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    
+    .k-control .k-hint {
+        width: auto !important;
+        text-align: center;
+        white-space: normal;
+    }
+    
+    .stray-control {
+        justify-content: center !important;
+    }
 }
 
 /* k slider control styling */
@@ -49,7 +81,20 @@ html, body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    overflow: hidden; /* prevent page-level scrolling */
+    overflow-x: hidden; /* prevent horizontal scrolling */
+}
+
+/* Mobile adjustments for body */
+@media (max-width: 768px) {
+    html, body {
+        overflow: auto; /* Allow scrolling on mobile */
+        height: auto;
+        min-height: 100vh;
+    }
+    
+    body {
+        --header-controls-height: 120px; /* More space for mobile controls */
+    }
 }
 
 /* Make box-sizing inherit everywhere so padding/border are included in width/height calculations */
@@ -59,14 +104,14 @@ html, body {
 
 /* Dropdown menu styling */
 #imageSelect {
-    font-size: 1rem;
-    padding: 10px 18px;
+    font-size: 0.95rem;
+    padding: 8px 16px; /* reduced padding */
     border-radius: 10px;
     border: 1px solid #d1d5db; /* subtle gray */
     background: #fff;
     color: #111827;
     box-shadow: 0 1px 6px rgba(16,24,40,0.04);
-    min-width: 220px;
+    min-width: 200px; /* reduced min-width */
     max-width: 520px;
     appearance: none;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -76,10 +121,40 @@ html, body {
     box-shadow: 0 6px 20px rgba(59,130,246,0.08);
 }
 
+/* Mobile adjustments for form elements */
+@media (max-width: 768px) {
+    #imageSelect {
+        font-size: 0.9rem;
+        padding: 12px 16px;
+        min-width: auto;
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .home-btn, #rerunBtn {
+        font-size: 0.9rem;
+        padding: 12px 16px;
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    #downloadBtn {
+        font-size: 0.8rem;
+        padding: 10px 14px;
+        width: 100%;
+        max-width: 160px;
+    }
+    
+    .dropdown-label {
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+    }
+}
+
 /* Upload button styling to match dropdown */
 #uploadBtn {
-    font-size: 1rem;
-    padding: 10px 18px;
+    font-size: 0.95rem;
+    padding: 8px 16px; /* reduced padding */
     border-radius: 10px;
     border: 1px solid #d1d5db;
     background: #ffffff;
@@ -242,7 +317,7 @@ html, body {
 /* Two column layout that contains controls on left and plot/recon on right */
 .content-columns {
     display: block;
-    padding: 8px 12px 12px 12px; /* reduced padding */
+    padding: 4px 8px 8px 8px; /* reduced padding */
     box-sizing: border-box;
     max-width: 100vw;
     overflow-x: hidden;
@@ -251,23 +326,39 @@ html, body {
     grid-column: 1 / -1;
     width: 100%;
     background: transparent;
-    padding-bottom: 8px;
+    padding-bottom: 4px; /* reduced padding */
 }
 
 /* Define total header + controls height for content sizing */
 body {
-    --header-controls-height: 120px; /* header ~60px + controls 60px */
+    --header-controls-height: 100px; /* header ~50px + controls 50px */
 }
 
 /* Header wrapper centers the title and controls within a constrained width */
 .header-wrapper {
     max-width: 980px;
     margin: 0 auto;
-    padding: 8px 12px; /* extra top padding to avoid clipping */
+    padding: 4px 12px; /* reduced top padding to save space */
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+/* Mobile content adjustments */
+@media (max-width: 768px) {
+    .content-columns {
+        padding: 4px 8px 8px 8px;
+    }
+    
+    .header-wrapper {
+        max-width: 100%;
+        padding: 4px 8px;
+    }
+    
+    .controls-panel {
+        padding-bottom: 12px;
+    }
 }
 
 @media (max-width: 900px) {
@@ -303,24 +394,24 @@ body {
     left: calc(50% - 50vw);
     width: 100vw;
     display: flex;
-    gap: 12px;
+    gap: 8px; /* reduced gap */
     box-sizing: border-box;
-    padding: 0 12px;
+    padding: 0 8px; /* reduced padding */
     align-items: flex-start;
 }
 /* Fill remaining viewport height under controls; avoid body scrolling */
 .three-col-container {
-    height: calc(100vh - var(--header-controls-height, 120px));
+    height: calc(100vh - var(--header-controls-height, 100px));
     overflow: hidden;
 }
 .three-col-container .summary-col {
-    width: 220px;
-    flex: 0 0 220px;
+    width: 200px; /* reduced width */
+    flex: 0 0 200px;
 }
 .three-col-container .summary-box {
     background: #fff;
     border: 1px solid #eee;
-    padding: 12px;
+    padding: 8px; /* reduced padding */
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
@@ -337,30 +428,30 @@ body {
 .recon-original, .recon-reconstructed {
     width: 100%;
     box-sizing: border-box;
-    padding: 12px 24px;
+    padding: 8px 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 8px;
     /* fixed visual display height so original and reconstructed match */
-    --recon-display-height: 260px;
+    --recon-display-height: 220px;
     height: var(--recon-display-height);
     min-height: var(--recon-display-height);
     max-height: var(--recon-display-height);
     overflow: hidden; /* Prevent any content from spilling out */
 }
 .recon-label {
-    flex: 0 0 92px; /* fixed column for label */
+    flex: 0 0 80px; /* fixed column for label */
     text-align: left;
     font-weight: 600;
     color: #374151;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     line-height: 1.1;
 }
 .recon-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
 }
 .recon-media {
@@ -389,8 +480,8 @@ body {
 }
 .recon-swatches {
     display: flex;
-    gap: 12px;
-    padding: 18px 24px 36px 24px; /* extra bottom padding so swatches don't get cut off */
+    gap: 8px;
+    padding: 12px 16px 24px 16px; /* reduced bottom padding so swatches don't get cut off */
     justify-content: center;
     align-items: center;
 }
@@ -399,11 +490,11 @@ body {
    Insert a left spacer equal to the label column so the remaining space centers the swatches. */
 .recon-swatches::before {
     content: '';
-    flex: 0 0 92px; /* matches .recon-label flex-basis */
+    flex: 0 0 80px; /* matches .recon-label flex-basis */
 }
 
 @media (max-width: 900px) {
-    .recon-original, .recon-reconstructed { --recon-display-height: 180px; }
+    .recon-original, .recon-reconstructed { --recon-display-height: 150px; }
 }
 
 /* Ensure plot and recon fill their column heights and scroll internally if content exceeds */
@@ -427,22 +518,127 @@ body {
 }
 
 @media (max-width: 900px) {
-    .three-col-container { flex-direction: column; left: 0; width: 100%; }
-    .three-col-container .summary-col, .three-col-container .right-col { width: 100%; flex: none; }
+    .three-col-container { 
+        flex-direction: column; 
+        left: 0; 
+        width: 100%; 
+        height: auto;
+        overflow: visible;
+        padding: 8px;
+        gap: 16px;
+    }
+    .three-col-container .summary-col, 
+    .three-col-container .right-col { 
+        width: 100%; 
+        flex: none; 
+    }
+    .three-col-container .left-col {
+        width: 100%;
+        height: 50vh; /* Give plot reasonable height on mobile */
+        min-height: 300px;
+    }
+    .three-col-container .summary-col {
+        order: 1; /* Summary first */
+    }
+    .three-col-container .right-col {
+        order: 2; /* Images second */
+    }
+    .three-col-container .left-col {
+        order: 3; /* Plot last on mobile */
+    }
+}
+
+/* Mobile-specific image layout */
+@media (max-width: 768px) {
+    .three-col-container {
+        padding: 4px;
+        gap: 8px;
+    }
+    
+    .three-col-container .left-col {
+        width: 100%;
+        height: 40vh; /* Reduced from 50vh for better space utilization */
+        min-height: 280px; /* Reduced from 320px to prevent cutoff */
+        padding-bottom: 15px; /* Reduced extra space for plot labels */
+    }
+    
+    /* Stack images vertically on small screens */
+    .recon-original, .recon-reconstructed {
+        --recon-display-height: 160px;
+        min-height: 160px;
+        max-height: 160px;
+        padding: 6px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start; /* Ensure consistent alignment */
+    }
+    
+    .recon-label {
+        flex: 0 0 70px;
+        font-size: 0.75rem;
+        text-align: left;
+        align-self: center; /* Center the label vertically */
+    }
+    
+    /* Ensure recon-row alignment on mobile */
+    .recon-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px; /* Slightly reduced gap for mobile */
+        width: 100%;
+    }
+    
+    /* Ensure consistent image alignment on mobile */
+    .recon-media {
+        display: block;
+        margin: 0 auto; /* Center horizontally */
+        align-self: center; /* Center within flex container */
+        border: 1px solid #e6e6e6; /* Ensure border is preserved on mobile */
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04); /* Ensure shadow is preserved on mobile */
+        box-sizing: border-box;
+    }
+    
+    /* Force consistent container alignment */
+    .recon-original .recon-row,
+    .recon-reconstructed .recon-row {
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 140px; /* Ensure consistent container height */
+    }
+    
+    /* Make plot more touch-friendly and ensure full visibility */
+    .plot-box {
+        touch-action: manipulation;
+        padding: 10px; /* Add padding to prevent label cutoff */
+        margin-bottom: 20px; /* Extra bottom margin for axis labels */
+    }
 }
 
 /* Page title and subtitle */
 .page-title {
-    margin: 4px 0 0 0;
+    margin: 2px 0 0 0;
     padding: 0;
     font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     font-weight: 700;
     letter-spacing: 0.2px;
     color: #222;
     text-align: center;
 }
-/* subtitle removed intentionally */
+
+/* Mobile title adjustments */
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.1rem;
+        margin: 2px 0;
+        line-height: 1.3;
+    }
+    
+    .header-wrapper {
+        padding: 4px 8px;
+    }
+}
 
 /* When centering controls, keep dropdown and upload compact on wide screens */
 .controls-panel .dropdown-container {
@@ -450,7 +646,7 @@ body {
     max-width: 980px;
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 8px 0 8px;
+    padding: 4px 8px 0 8px; /* reduced top padding */
     margin: 0 auto;
 }
 
@@ -517,8 +713,8 @@ body {
 
 /* Style the home button to match other controls */
 .home-btn {
-    font-size: 1rem;
-    padding: 10px 18px;
+    font-size: 0.95rem;
+    padding: 8px 16px; /* reduced padding */
     border-radius: 10px;
     border: 1px solid #d1d5db;
     background: #ffffff;
@@ -537,8 +733,8 @@ body {
 
 /* Style the rerun clustering button to match other controls */
 #rerunBtn {
-    font-size: 1rem;
-    padding: 10px 18px;
+    font-size: 0.95rem;
+    padding: 8px 16px; /* reduced padding */
     border-radius: 10px;
     border: 1px solid #d1d5db;
     background: #ffffff;
