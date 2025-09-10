@@ -2,32 +2,7 @@
 
 const gallery = document.getElementById('gallery');
 
-fetch('images.json')
-    .then(response => response.json())
-    .then(imageFiles => {
-        imageFiles.forEach(file => {
-            const container = document.createElement('div');
-            container.className = 'image-container';
-            const img = document.createElement('img');
-            img.src = `images/${file}`;
-            img.alt = file;
-            const label = document.createElement('div');
-            label.className = 'image-label';
-            label.textContent = file;
-            container.appendChild(img);
-            container.appendChild(label);
-            gallery.appendChild(container);
-            // Add click event to redirect to stats.html with image info
-            img.addEventListener('click', () => {
-                let url = 'stats.html?image=' + encodeURIComponent(file);
-                window.location.href = url;
-            });
-        });
-        // Only append the upload box after all images
-        gallery.appendChild(uploadBox);
-    });
-
-// Add a final box for 'upload image' with upload functionality
+// Add upload box first
 const uploadBox = document.createElement('div');
 uploadBox.className = 'image-container upload-image-box';
 uploadBox.style.cursor = 'pointer';
@@ -62,8 +37,8 @@ fileInput.addEventListener('change', (event) => {
             label.textContent = file.name;
             container.appendChild(img);
             container.appendChild(label);
-            // Insert before the upload box
-            gallery.insertBefore(container, uploadBox);
+            // Insert after the upload box (second position)
+            gallery.insertBefore(container, uploadBox.nextSibling);
             // Add click event to select uploaded image and show RGB stats
             img.addEventListener('click', () => {
                 sessionStorage.setItem('uploadedImageSrc', img.src);
@@ -75,4 +50,29 @@ fileInput.addEventListener('change', (event) => {
     }
 });
 
+// Add upload box to gallery first
 gallery.appendChild(uploadBox);
+
+fetch('images.json')
+    .then(response => response.json())
+    .then(imageFiles => {
+        // Reverse the order of images so lakers comes first, then sunset, etc.
+        imageFiles.reverse().forEach(file => {
+            const container = document.createElement('div');
+            container.className = 'image-container';
+            const img = document.createElement('img');
+            img.src = `images/${file}`;
+            img.alt = file;
+            const label = document.createElement('div');
+            label.className = 'image-label';
+            label.textContent = file;
+            container.appendChild(img);
+            container.appendChild(label);
+            gallery.appendChild(container);
+            // Add click event to redirect to stats.html with image info
+            img.addEventListener('click', () => {
+                let url = 'stats.html?image=' + encodeURIComponent(file);
+                window.location.href = url;
+            });
+        });
+    });
